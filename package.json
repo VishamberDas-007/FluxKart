@@ -1,0 +1,21 @@
+{
+	"name": "bitespeed",
+	"version": "1.0.0",
+	"description": "This is a backend to help fluxkart",
+	"main": "index.js",
+	"repository": "https://github.com/VishamberDas-007/FluxKart.git",
+	"author": "Vishamber Das",
+	"license": "MIT",
+	"scripts": {
+		"start": "tsc && node dist/index.js",
+		"build": "tsc"
+	},
+	"devDependencies": {
+		"@types/express": "^4.17.21",
+		"typescript": "^5.5.3"
+	},
+	"dependencies": {
+		"dotenv": "^16.4.5",
+		"express": "^4.19.2"
+	}
+}
