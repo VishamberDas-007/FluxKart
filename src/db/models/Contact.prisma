@@ -1,0 +1,17 @@
+model Contact {
+    id             Int            @id @default(autoincrement())
+    phoneNumber    String?
+    email          String?
+    linkedId       Int?
+    parent         Contact?       @relation("contact_to_contact", fields: [linkedId], references: [id])
+    linkPrecedence LINKPRECEDENCE
+    createdAt      DateTime       @default(now())
+    updatedAt      DateTime       @updatedAt
+    deletedAt      DateTime?
+    children       Contact[]      @relation("contact_to_contact") //self relation
+}
+
+enum LINKPRECEDENCE {
+    primary
+    secondary
+}
