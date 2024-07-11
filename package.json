@@ -10,16 +10,19 @@
 		"schema": "./src/db/schema.prisma"
 	},
 	"scripts": {
-		"start": "tsc && node dist/index.js",
+		"start": "nodemon ./src/index.ts",
 		"build": "tsc"
 	},
 	"devDependencies": {
 		"@prisma/client": "^5.16.2",
 		"@types/express": "^4.17.21",
+		"nodemon": "^3.1.4",
 		"prismix": "^1.0.22",
+		"ts-node": "^10.9.2",
 		"typescript": "^5.5.3"
 	},
 	"dependencies": {
+		"cors": "^2.8.5",
 		"dotenv": "^16.4.5",
 		"express": "^4.19.2",
 		"prisma": "^5.16.2"
