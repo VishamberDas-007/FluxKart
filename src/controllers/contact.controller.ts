@@ -5,8 +5,9 @@ import {
 	CONTACT_S_0002,
 } from "../config/responseCode/contact";
 import prisma from "../db";
-import { TContactIdentifyResult } from "./types/contact";
+import { TContactIdentifyResult, TContactResultWithSet } from "./types/contact";
 import { Contact } from "@prisma/client";
+import { addUniqueToSet } from "../utils/helper";
 
 export const identifyContact = async (req: Request, res: Response) => {
 	try {
@@ -16,12 +17,12 @@ export const identifyContact = async (req: Request, res: Response) => {
 		const emailLowerCase = email?.toLowerCase();
 		let emailMatchData: Contact | undefined,
 			phoneNumberMatchData: Contact | undefined;
-		const result: TContactIdentifyResult = {
+		const obj: TContactResultWithSet = {
 			contact: {
-				emails: [],
-				phoneNumbers: [],
+				emails: new Set<string>(),
+				phoneNumbers: new Set<string>(),
 				primaryContactId: 0,
-				secondaryContactIds: [],
+				secondaryContactIds: new Set<number>(),
 			},
 		};
 
@@ -41,6 +42,7 @@ export const identifyContact = async (req: Request, res: Response) => {
 		}
 
 		if (!emailMatchData && !phoneNumberMatchData) {
+			// if both email and phone number are not present, create a new contact
 			await prisma.contact.create({
 				data: {
 					email: emailLowerCase,
@@ -52,6 +54,7 @@ export const identifyContact = async (req: Request, res: Response) => {
 			(emailLowerCase && !emailMatchData) ||
 			(phoneNumber && !phoneNumberMatchData)
 		) {
+			// if either email or phone number is present in request and do not match to any existing db record, create a new contact
 			await prisma.contact.create({
 				data: {
 					email: emailLowerCase,
@@ -68,6 +71,7 @@ export const identifyContact = async (req: Request, res: Response) => {
 			phoneNumberMatchData &&
 			emailMatchData.id !== phoneNumberMatchData.id
 		) {
+			// if both email and phone number match to different existing db records, update the linkPrecedence and linkedId of the existing record
 			await prisma.$transaction(async (prisma) => {
 				await prisma.contact.update({
 					where: {
@@ -111,39 +115,37 @@ export const identifyContact = async (req: Request, res: Response) => {
 			},
 		});
 
-		if (contactData.linkPrecedence === "primary") {
-			result.contact.primaryContactId = contactData.id;
-			!result.contact.emails.includes(contactData.email) &&
-				result.contact.emails.unshift(contactData.email);
-			!result.contact.phoneNumbers.includes(contactData.phoneNumber) &&
-				result.contact.phoneNumbers.unshift(contactData.phoneNumber);
-		} else {
-			result.contact.secondaryContactIds.push(contactData.id);
-			contactData.email &&
-				!result.contact.emails.includes(contactData.email) &&
-				result.contact.emails.push(contactData.email);
-			contactData.phoneNumber &&
-				!result.contact.phoneNumbers.includes(contactData.phoneNumber) &&
-				result.contact.phoneNumbers.push(contactData.phoneNumber);
+		// add parent first in the list
+		if (contactData.parent) {
+			obj.contact.primaryContactId = contactData.parent.id;
+			addUniqueToSet(obj.contact.emails, contactData.parent.email);
+			addUniqueToSet(obj.contact.phoneNumbers, contactData.parent.phoneNumber);
 		}
 
+		if (contactData.linkPrecedence === "primary") {
+			obj.contact.primaryContactId = contactData.id;
+		} else {
+			addUniqueToSet(obj.contact.secondaryContactIds, contactData.id);
+		}
+		addUniqueToSet(obj.contact.emails, contactData.email);
+		addUniqueToSet(obj.contact.phoneNumbers, contactData.phoneNumber);
+
+		// add children in the list
 		contactData.children.forEach((element) => {
-			result.contact.secondaryContactIds.push(element.id);
-			element.email &&
-				!result.contact.emails.includes(element.email) &&
-				result.contact.emails.push(element.email);
-			element.phoneNumber &&
-				!result.contact.phoneNumbers.includes(element.phoneNumber) &&
-				result.contact.phoneNumbers.push(element.phoneNumber);
+			addUniqueToSet(obj.contact.secondaryContactIds, element.id);
+			addUniqueToSet(obj.contact.emails, element.email);
+			addUniqueToSet(obj.contact.phoneNumbers, element.phoneNumber);
 		});
 
-		if (contactData.parent) {
-			result.contact.primaryContactId = contactData.parent.id;
-			!result.contact.emails.includes(contactData.parent.email) &&
-				result.contact.emails.unshift(contactData.parent.email);
-			!result.contact.phoneNumbers.includes(contactData.parent.phoneNumber) &&
-				result.contact.phoneNumbers.unshift(contactData.parent.phoneNumber);
-		}
+		// convert set to array and return the result
+		const result: TContactIdentifyResult = {
+			contact: {
+				emails: Array.from(obj.contact.emails),
+				phoneNumbers: Array.from(obj.contact.phoneNumbers),
+				primaryContactId: obj.contact.primaryContactId,
+				secondaryContactIds: Array.from(obj.contact.secondaryContactIds),
+			},
+		};
 
 		return res.status(CONTACT_S_0001.statusCode).json({
 			...CONTACT_S_0001,

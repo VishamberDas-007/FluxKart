@@ -6,3 +6,12 @@ export type TContactIdentifyResult = {
 		secondaryContactIds: number[];
 	};
 };
+
+export type TContactResultWithSet = {
+	contact: {
+		primaryContactId: number;
+		emails: Set<string>;
+		phoneNumbers: Set<string>;
+		secondaryContactIds: Set<number>;
+	};
+};
